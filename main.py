@@ -47,7 +47,7 @@ def download_link(df):
 
 class main:
     def __init__(self):
-        self.menu = ['Home', 'File', 'Hỏi Đáp', 'Biểu Đồ', 'Trợ Giúp']
+        self.menu = ['Home', 'Hỏi Đáp', 'Biểu Đồ', 'Trợ Giúp']
         self.pos = ["Thủ Môn", "Hậu Vệ", 'Tiền Vệ', 'Tiền Đạo']
         self.club = ['Việt Nam', 'Nhật Bản', 'Saudi Arabia', 'Trung Quốc', 'Australia', 'Oman']
         self.removeOpt = ('Xóa tất cả', 'Xóa từng dòng')
@@ -57,26 +57,24 @@ class main:
         self.club.sort()
         self.df = None
         self.home()
-        self.graph()
-        self.info()
 
     def home(self):
         with st.form(key='Form1'):
             choice = st.sidebar.selectbox("Menu", self.menu)
-            with st.sidebar:
-                editBox = st.radio('Bật Tắt Sửa File', ('Tắt', 'Mở'))
-                buttonAdd = st.form_submit_button('Thêm Dữ Liệu')
-                buttonDrawChart = st.form_submit_button('Vẽ Biểu Đồ')
+            # with st.sidebar:
+            #     editBox = st.radio('Bật Tắt Sửa File', ('Tắt', 'Mở'))
+            #     buttonAdd = st.form_submit_button('Thêm Dữ Liệu')
+            #     buttonDrawChart = st.form_submit_button('Vẽ Biểu Đồ')
 
-        if choice == 'Home':
-            st.title('Home')
+        if choice == self.menu[0]:  # Trang chủ
+            st.title('Trang chủ')
             st.image("football-manager-2021.jpg")
-            buttonOpenFile = st.file_uploader("Upload Database File", type=["db", "csv", "xlsx"])
+            buttonOpenFile = st.file_uploader("Tải file dữ liệu lên", type=["db", "csv", "xlsx"])
             if buttonOpenFile is not None:
-                st.info('Database has imported completely')
-                if st.checkbox("Display data at here"):
+                st.info('Dữ liệu được thêm hoàn tất')
+                if st.checkbox("Bật tắt hiển thị dữ liệu"):
                     _, fileExtension = os.path.splitext(str(buttonOpenFile.name))
-                    if fileExtension in ['.xlsx', '.xls', '.csv']:
+                    if fileExtension in ['.xlsx', '.xls']:
                         self.df = pd.read_excel(str(buttonOpenFile.name), engine='openpyxl')
                         if 'ssDf' not in st.session_state:
                             st.session_state.ssDf = self.df
@@ -89,7 +87,7 @@ class main:
                     else:  # for *.db file
                         self.displayDb(str(buttonOpenFile.name))
             else:
-                st.warning('Database has not imported yet')
+                st.warning('File dữ liệu chưa được thêm')
 
             nameValue = st.text_input("Full Name", help='Nhập họ và tên cầu thủ')
             col1, col2 = st.columns(2)
@@ -106,11 +104,9 @@ class main:
                     lst = np.array([nameValue, newYearValue, posValue, clubValue, numValue])
                     self.importTable(lst)
                     st.success("Thêm dữ liệu cầu thủ <<< {} >>> hoàn tất".format(nameValue))
-
             else:
-                st.warning('Users must input enough parameters')
+                st.warning('Người dùng cần nhập đầy đủ thông tin')
 
-            col1, col2, col3 = st.columns(3)
             boxRemove = col1.selectbox('Lựa Chọn', options=self.removeOpt)
             buttonRemove = col1.button('Xóa')
             if buttonRemove:
@@ -122,29 +118,53 @@ class main:
             if self.df is not None:
                 st.dataframe(st.session_state.ssDf)
 
-            boxQa = col2.selectbox('Lựa Chọn', options=self.qaOpt)
-            buttonQa = col2.button('Trả Lời')
-            if buttonQa:
-                if boxQa == self.qaOpt[0]:
-                    pass
-                elif boxQa == self.qaOpt[1]:
-                    pass
-                elif boxQa == self.qaOpt[2]:
-                    pass
-
-            boxSave = col3.selectbox('Lựa Chọn', options=self.saveOpt)
-            buttonSave = col3.button('Lưu')
+            buttonSave = st.button('Lưu Dữ Liệu')
             if buttonSave:
-                if boxSave == self.saveOpt[0]:
-                    pass
-                else:
+                st.markdown(download_link(st.session_state.ssDf), unsafe_allow_html=True)
+        elif choice == self.menu[1]:  # Hỏi đáp
+            st.title('Hỏi Đáp')
+            if self.df is None:
+                st.warning('Chưa nhập bất cứ dữ liệu nào')
+            else:
+                st.info('Dữ liệu đã được nhập')
+                st.dataframe(st.session_state.ssDf)
+                boxQa = st.selectbox('Lựa Chọn Câu Hỏi', options=self.qaOpt)
+                buttonQa = st.button('Trả Lời')
+
+                if buttonQa:
+                    if boxQa == self.qaOpt[0]:
+                        pass
+                    elif boxQa == self.qaOpt[1]:
+                        pass
+                    elif boxQa == self.qaOpt[2]:
+                        pass
+        elif choice == self.menu[2]:  # Biểu đồ
+            st.title('Biểu Đồ')
+            if self.df is None:
+                st.warning('Chưa nhập bất cứ dữ liệu nào')
+            else:
+                st.info('Dữ liệu đã được nhập')
+                st.dataframe(st.session_state.ssDf)
+                buttonSave = st.button('Lưu Hình Ảnh')
+                if buttonSave:
                     st.markdown(download_link(st.session_state.ssDf), unsafe_allow_html=True)
+        elif choice == self.menu[3]:  # Liên hệ
+            st.title('Liên Hệ')
+            self.info()
 
     def graph(self):
         pass
 
     def info(self):
-        pass
+        st.subheader('FOOTBALL MANAGER\n')
+        st.code("Phần mềm quản lý cầu thủ đang trong giai đoạn thử nghiệm\n"
+                "---------------------------------------------"
+                "\nMọi chi tiết xin vui lòng liên hệ:"
+                "\nThành viên dự án Football Manager:"
+                "\n      Tên: Nguyễn Lê Minh Hòa"
+                "\n           Trần Trung Lưu"
+                "\n           Trần Huỳnh Quốc Vũ"
+                "\n      SĐT: 0944 886 896")
 
     def importTable(self, lst):
         # Thêm vào database table
