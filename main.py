@@ -5,44 +5,11 @@ import numpy as np
 import sqlite3
 from sqlite3 import Connection
 import streamlit as st
-import datetime
+from datetime import date, datetime
 import os.path
 import copy as cp
-
-
-def init_db(conn: Connection):
-    conn.commit()
-
-
-def build_sidebar(conn: Connection):
-    st.sidebar.header("Configuration")
-    input1 = st.sidebar.slider("Input 1", 0, 100)
-    input2 = st.sidebar.slider("Input 2", 0, 100)
-    if st.sidebar.button("Save to database"):
-        conn.execute(f"INSERT INTO test (INPUT1, INPUT2) VALUES ({input1}, {input2})")
-        conn.commit()
-
-
-def get_data(conn: Connection):
-    df = pd.read_sql("SELECT * FROM player_db", con=conn)
-    return df
-
-
-def get_connection(path: str):
-    return sqlite3.connect(path, check_same_thread=False)
-
-
-def download_link(df):
-    from io import BytesIO
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    df.to_excel(writer, sheet_name='Sheet1', index=False)
-    writer.save()
-    val = output.getvalue()
-
-    b64 = base64.b64encode(val)  # val looks like b'...'
-    return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="database_file.xlsx"><input ' \
-           f'type="button" value="Download File"></a>'
+import re
+import plotly.graph_objects as go
 
 
 class main:
@@ -51,7 +18,7 @@ class main:
         self.pos = ["Thủ Môn", "Hậu Vệ", 'Tiền Vệ', 'Tiền Đạo']
         self.club = ['Việt Nam', 'Nhật Bản', 'Saudi Arabia', 'Trung Quốc', 'Australia', 'Oman']
         self.removeOpt = ('Xóa tất cả', 'Xóa từng dòng')
-        self.qaOpt = ('Tìm tên cầu thủ', 'Cầu thủ trẻ nhất', 'Vị trí của cầu thủ > 25 tuổi')
+        self.qaOpt = ('Tìm tên cầu thủ', 'Cầu thủ trẻ nhất', 'Vị trí và Câu lạc bộ')
         self.saveOpt = ('Lưu Biểu Đồ', 'Lưu Dữ Liệu')
         self.pos.sort()
         self.club.sort()
@@ -72,6 +39,7 @@ class main:
             st.title('Trang chủ')
             st.image("football-manager-champion.jpg")
             buttonOpenFile = st.file_uploader("Tải file dữ liệu", type=["db", "csv", "xlsx"])
+
             if st.checkbox("Bật tắt hiển thị dữ liệu"):
                 if buttonOpenFile is not None:
                     st.info('Dữ liệu được thêm hoàn tất')
@@ -81,10 +49,12 @@ class main:
                     elif fileExtension in ['.csv']:
                         self.df = pd.read_csv(str(buttonOpenFile.name), encoding='utf-8')
                     else:  # for *.db file
-                        conn = self.displayDb(str(buttonOpenFile.name))
-                        self.df = pd.DataFrame(get_data(conn))
-                    print('ssDf' not in st.session_state)
-                elif 'ssDf' in st.session_state:
+                        conn = self.get_connection(str(buttonOpenFile.name))
+                        self.init_db(conn)
+                        split_db_name = str(buttonOpenFile.name).split('.')
+                        db_name = split_db_name[0]
+                        self.df = pd.DataFrame(self.get_data(conn, db_name))
+                elif 'ssDf' in st.session_state and st.session_state.ssDf is not None:
                     st.info('File dữ liệu đã được lưu trong bộ nhớ tạm')
                 else:
                     st.info('Dữ liệu chưa được thêm')
@@ -93,7 +63,7 @@ class main:
             nameValue = st.text_input("Full Name", help='Nhập họ và tên cầu thủ')
             col1, col2 = st.columns(2)
             yearValue = col1.date_input('Date of Birth', help='Nhập ngày tháng năm sinh cầu thủ',
-                                        min_value=datetime.datetime(1950, 1, 1), max_value=datetime.datetime.now())
+                                        min_value=datetime(1950, 1, 1), max_value=datetime.now())
             numValue = col2.number_input("Số Áo", min_value=1, format='%d', help='Nhập số áo cầu thủ')
             clubValue = col1.selectbox("Câu Lạc Bộ", tuple(self.club), help='Chọn câu lạc bộ cầu thủ đang tham gia')
             posValue = col2.selectbox("Vị Trí", tuple(self.pos), help='Chọn vị trí của cầu thủ')
@@ -101,7 +71,7 @@ class main:
             if nameValue != '' or len(nameValue) != 0:
                 buttonSubmit = st.button('Submit')
                 if buttonSubmit:
-                    newYearValue = datetime.datetime.strptime(str(yearValue), '%Y-%m-%d').strftime('%d/%m/%Y')
+                    newYearValue = datetime.strptime(str(yearValue), '%Y-%m-%d').strftime('%d/%m/%Y')
                     lst = np.array([nameValue, newYearValue, posValue, clubValue, numValue])
                     self.importTable(lst)
                     st.success("Thêm dữ liệu cầu thủ <<< {} >>> hoàn tất".format(nameValue))
@@ -121,30 +91,28 @@ class main:
 
             buttonSave = st.button('Lưu Dữ Liệu')
             if buttonSave:
-                st.markdown(download_link(st.session_state.ssDf), unsafe_allow_html=True)
+                st.markdown(self.download_link(st.session_state.ssDf), unsafe_allow_html=True)
         elif choice == self.menu[1]:  # Hỏi đáp
-            import re
             _newDf = None
             _copy_Df = None
             split_space_word = []
             st.title('Hỏi Đáp')
-            if st.session_state.ssDf is not None:
-                _copy_Df = cp.deepcopy(st.session_state.ssDf)
-                st.dataframe(_copy_Df)
-                col1, col2 = st.columns([4, 1])
-                clearDB = col2.button('Clear dữ liệu')
-                if clearDB:
-                    _copy_Df = _copy_Df[0:0]
-                    col1.warning('Dữ liệu chưa được nhập')
-                else:
-                    col1.info('Dữ liệu đã được nhập')
+            self.check_database_exist()
             boxQa = st.selectbox('Lựa Chọn Câu Hỏi', options=self.qaOpt)
+            st.markdown('*Lựa chọn cột hiển thị*')
+            col = st.columns(5)
+            filter_col1 = col[0].checkbox('Họ và Tên', True)
+            filter_col2 = col[1].checkbox('Ngày Sinh', True)
+            filter_col3 = col[2].checkbox('Vị Trí', True)
+            filter_col4 = col[3].checkbox('Câu Lạc Bộ', True)
+            filter_col5 = col[4].checkbox('Số Áo', True)
+            col_filter_list = [filter_col1, filter_col2, filter_col3, filter_col4, filter_col5]
 
             if boxQa == self.qaOpt[0]:
                 names = st.text_input('Nhập tên cầu thủ muốn tìm')  # Người dùng nhập 1 hoặc nhiều tên
-                                                                    # và cách nhau bằng dấu phẩy
+                # và cách nhau bằng dấu phẩy
                 optionSearch = st.radio('Cách tìm kiếm', ('Chính Xác', 'Tương Đối'), index=0)
-                if st.session_state.ssDf is not None:
+                if st.session_state.ssDf is not None and len(names) > 0:
                     split_comma = names.split(',')
                     for word in split_comma:
                         word_list = re.findall(r"[\w']+", word)
@@ -152,77 +120,280 @@ class main:
                     _newDf = self.search_string(split_space_word, optionSearch)
 
             elif boxQa == self.qaOpt[1]:
-                pass
-                # tuoiBox, cancel = self.dialogBirthBox()
-                # if not cancel:
-                #     return None
-                #
-                # result = []
-                # today = date.today()
-                # yearCurrent = today.strftime('%Y')
-                # tuoiDf = cp.deepcopy(self.df)
-                #
-                # for dateIdx in tuoiDf['Ngày Sinh']:
-                #     date_transfer_df = datetime.strptime(dateIdx, '%d/%m/%Y')
-                #     year_df = date_transfer_df.strftime('%Y')
-                #     tuoiPlayer = int(yearCurrent) - int(year_df)
-                #     if tuoiPlayer > tuoiBox:
-                #         result.append(True)
-                #     else:
-                #         result.append(False)
-                # tuoiDf['result'] = result
-                # tuoiDf = tuoiDf[tuoiDf['result'] == True]
-                # obj = tuoiDf.drop(columns='result')
-                #
-                # return obj
+                old_lst = st.slider('Nhập Tuổi', min_value=18, max_value=50, value=[18, 20], step=1)  # Nhập số tuổi
+                # của cầu thủ
+                if st.session_state.ssDf is not None and len(old_lst) > 0:
+                    _newDf = self.search_number(old_lst)
             elif boxQa == self.qaOpt[2]:
-                pass
-                # posTeamDf = cp.deepcopy(self.df)
-                # self.dialog = inputPosClub(option=2)
-                # if self.dialog.exec_():
-                #     pos, club = self.dialog.getInputs()
-                #     posTeamDf = posTeamDf[posTeamDf['Vị Trí'] == pos]
-                #     posTeamDf = posTeamDf[posTeamDf['Câu Lạc Bộ'] == club]
-                # else:
-                #     return None
-                # obj = posTeamDf
-                # return obj
+                col1 = st.sidebar.selectbox("Vị Trí", self.pos)
+                col2 = st.sidebar.selectbox("Câu Lạc Bộ", self.club)
+                col_lst = [col1, col2]
+                if st.session_state.ssDf is not None:
+                    _newDf = self.search_col(col_lst)
 
             buttonQa = st.button('Trả Lời')
             if buttonQa:
                 if _newDf is not None:
+                    _newDf = self.filter_col(_newDf, col_filter_list)
+                    import time
+                    latest_iteration = st.empty()
+                    bar = st.progress(0)
+                    num = 10
+                    for i in range(0, num + 1, 1):
+                        latest_iteration.text(f'{num - i} seconds left')
+                        bar.progress((100 // num) * i)
+                        time.sleep(0.1)
                     st.dataframe(_newDf)
                 else:
-                    st.error('Không có dữ liệu để trả lời câu hỏi')
+                    st.error('Không có dữ liệu để trả lời câu hỏi. Vui lòng kiểm tra lại thông tin nhập')
         elif choice == self.menu[2]:  # Biểu đồ
             st.title('Biểu Đồ')
-            if self.df is None:
-                st.warning('Chưa nhập bất cứ dữ liệu nào')
-            else:
-                st.info('Dữ liệu đã được nhập')
-                st.dataframe(st.session_state.ssDf)
-                buttonSave = st.button('Lưu Hình Ảnh')
-                if buttonSave:
-                    st.markdown(download_link(st.session_state.ssDf), unsafe_allow_html=True)
+            cp_df = cp.deepcopy(st.session_state.ssDf)
+            self.check_database_exist()
+            if cp_df is None:
+                return
+
+            num_club_dict = self.cal_string_club(cp_df['Câu Lạc Bộ'])
+            num_pos_dict = self.cal_string_pos(cp_df['Câu Lạc Bộ'], num_club_dict, cp_df['Vị Trí'])
+            #print(num_pos_dict.keys())
+            chart_visual = st.sidebar.selectbox('Lựa chọn biểu đồ',
+                                                ('Bar Chart', 'Pie Chart'))
+            detail = st.sidebar.checkbox('Chi Tiết', help='Thể hiện chi tiết số lượng từng vị trí trong đội bóng')
+            opt_club = self.club[:]
+            opt_club.insert(0, 'Tất Cả')
+            list_club_keys = list(num_club_dict.keys())
+            list_club_val = list(num_club_dict.values())
+            list_pos_of_club_keys = list(num_pos_dict.keys())
+            list_pos_of_club_val = list(num_pos_dict.values())
+            list_pos_of_club_in_keys = list(list_pos_of_club_val[0].keys())
+
+            if chart_visual == 'Bar Chart':
+                fig = go.Figure(data=[
+                    go.Bar(name=list_club_keys[0],
+                           x=[list_club_keys[0]],
+                           y=[list_club_val[0]]),
+                    go.Bar(name=list_club_keys[1],
+                           x=[list_club_keys[1]],
+                           y=[list_club_val[1]]),
+                    go.Bar(name=list_club_keys[2],
+                           x=[list_club_keys[2]],
+                           y=[list_club_val[2]]),
+                    go.Bar(name=list_club_keys[3],
+                           x=[list_club_keys[3]],
+                           y=[list_club_val[3]]),
+                ]
+                )
+                # Change the bar mode
+                fig.update_layout(title='Biểu Đồ Cột Thể Hiện Số Lượng Cầu Thủ Của Từng Đội Bóng World Cup 2021',
+                                  barmode='group',
+                                  xaxis_title="Các Quốc Gia Tham Gia World Cup 2022 Bảng A",
+                                  yaxis_title="Số Lượng Cầu Thủ",
+                                  font=dict(
+                                      family="Courier New, monospace",
+                                      size=15))
+                x_axis_0 = [list_pos_of_club_keys[0],
+                            list_pos_of_club_keys[1],
+                            list_pos_of_club_keys[2],
+                            list_pos_of_club_keys[3]]
+                y_axis_0 = [list(list_pos_of_club_val[0].values())[0],
+                            list(list_pos_of_club_val[1].values())[0],
+                            list(list_pos_of_club_val[2].values())[0],
+                            list(list_pos_of_club_val[3].values())[0]]
+                y_axis_1 = [list(list_pos_of_club_val[0].values())[1],
+                            list(list_pos_of_club_val[1].values())[1],
+                            list(list_pos_of_club_val[2].values())[1],
+                            list(list_pos_of_club_val[3].values())[1]]
+                y_axis_2 = [list(list_pos_of_club_val[0].values())[2],
+                            list(list_pos_of_club_val[1].values())[2],
+                            list(list_pos_of_club_val[2].values())[2],
+                            list(list_pos_of_club_val[3].values())[2]]
+                y_axis_3 = [list(list_pos_of_club_val[0].values())[3],
+                            list(list_pos_of_club_val[1].values())[3],
+                            list(list_pos_of_club_val[2].values())[3],
+                            list(list_pos_of_club_val[3].values())[3]]
+
+                if detail:
+                    fig = go.Figure(data=[
+                        go.Bar(name=list_pos_of_club_in_keys[0],
+                               x=x_axis_0,
+                               y=y_axis_0),
+                        go.Bar(name=list_pos_of_club_in_keys[1],
+                               x=x_axis_0,
+                               y=y_axis_1),
+                        go.Bar(name=list_pos_of_club_in_keys[2],
+                               x=x_axis_0,
+                               y=y_axis_2),
+                        go.Bar(name=list_pos_of_club_in_keys[3],
+                               x=x_axis_0,
+                               y=y_axis_3)])
+                    #  Change the bar mode
+                    fig.update_layout(title='Số Lượng Vị Trí Cầu Thủ Đội Bóng World Cup 2021',
+                                      barmode='group',
+                                      xaxis_title="Các Quốc Gia Tham Gia World Cup 2022 Bảng A",
+                                      yaxis_title="Số Lượng Cầu Thủ",
+                                      font=dict(
+                                          family="Courier New, monospace",
+                                          size=15)
+                                      )
+                st.write(fig)
+
         elif choice == self.menu[3]:  # Liên hệ
             st.title('Liên Hệ')
             self.info()
 
-    def session_state_df(self, dataframe):
+    @staticmethod
+    def getList(inputDict):
+        return list(inputDict.keys())
+
+    def cal_string_pos(self, clubDf, clubdict, posLstDf):
+        out_pos_dict = {}
+        out_dict = {}
+        clubdict_keylst = list(clubdict.keys())
+        clubdict_vallst = list(clubdict.values())
+        for i in range(len(posLstDf)):
+            for j in range(len(posLstDf)):
+                if posLstDf[i] == posLstDf[j]:
+                    out_pos_dict[posLstDf[i]] = 0
+                else:
+                    pass
+        pos_dict = self.getList(out_pos_dict)
+        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        for i in range(len(clubDf)):
+
+            # print('i=', i)
+            for j in range(len(clubdict_keylst)):
+                print('result dict', clubdict_vallst[j])
+                print('sum dict', sum(out_pos_dict.values()))
+
+                # print('>> out_pos_dict', out_pos_dict)
+                # print('>> out_dict', out_dict)
+                # print('j', j)
+                if clubDf[i] == clubdict_keylst[j]:
+                    for k in range(len(pos_dict)):
+                        if pos_dict[k] == posLstDf[i]:
+                            out_pos_dict[pos_dict[k]] = out_pos_dict.get(pos_dict[k]) + 1
+                    out_dict[clubdict_keylst[j]] = out_pos_dict
+                    if sum(out_pos_dict.values()) == clubdict_vallst[j]:
+                        out_pos_dict = out_pos_dict.fromkeys(out_pos_dict, 0)
+        return out_dict
+
+    def cal_string_club(self, inputClubLstDf):
+        out_club_dict = {}
+        for i in range(len(inputClubLstDf)):
+            for j in range(len(inputClubLstDf)):
+                if inputClubLstDf[i] == inputClubLstDf[j]:
+                    out_club_dict[inputClubLstDf[i]] = 0
+                else:
+                    pass
+
+        pos_dict = self.getList(out_club_dict)
+        for i in range(len(inputClubLstDf)):
+            for j in range(len(pos_dict)):
+                if pos_dict[j] == inputClubLstDf[i]:
+                    out_club_dict[pos_dict[j]] = out_club_dict.get(pos_dict[j]) + 1
+
+        return out_club_dict
+
+    @staticmethod
+    def check_database_exist():
+        if st.session_state.ssDf is not None:
+            _copy_Df = cp.deepcopy(st.session_state.ssDf)
+            st.dataframe(_copy_Df)
+            col1, col2 = st.columns([4, 1])
+            clearDB = col2.button('Clear dữ liệu')
+            if clearDB:
+                _copy_Df = _copy_Df[0:0]
+                col1.warning('Dữ liệu chưa được nhập')
+            else:
+                col1.info('Dữ liệu đã được nhập')
+
+    @staticmethod
+    def search_col(col_list=None):
+        cp_df = cp.deepcopy(st.session_state.ssDf)
+        if col_list is not None:
+            obj = cp_df[cp_df['Vị Trí'] == col_list[0]]
+            obj = obj[obj['Câu Lạc Bộ'] == col_list[1]]
+        return obj
+
+    @staticmethod
+    def filter_col(df, col_filter_list=None):
+        show_names_lst = []
+        if col_filter_list is not None:
+            for i in range(len(col_filter_list)):
+                if col_filter_list[i]:
+                    show_names_lst.append(df.columns[i])
+        obj = df[show_names_lst]
+        return obj
+
+    @staticmethod
+    def session_state_df(dataframe):
         if dataframe is not None:
             st.session_state.ssDf = dataframe
         return st.dataframe(st.session_state.ssDf)
 
-    def search_string(self, word_list_name, option=0):
+    def search_number(self, oldList):
+        result = []
+        today = date.today()
+        currentYear = today.strftime('%Y')
+        cp_df = cp.deepcopy(st.session_state.ssDf)
+        for dateIdx in cp_df['Ngày Sinh']:
+            date_transfer_df = datetime.strptime(dateIdx, '%d/%m/%Y')
+            year_player = date_transfer_df.strftime('%Y')
+            old_player = int(currentYear) - int(year_player)
+            if oldList[0] <= int(old_player) <= oldList[1]:
+                result.append(True)
+            else:
+                result.append(False)
+        cp_df['result'] = result
+        tuoiDf = cp_df[cp_df['result'] == True]
+        obj = tuoiDf.drop(columns='result')
+        return obj
+
+    @staticmethod
+    def search_string(word_list_name, option=0):
         cp_df = cp.deepcopy(st.session_state.ssDf)
         if option == 'Chính Xác':
             obj = cp_df[np.logical_and.reduce([cp_df['Họ và Tên'].str.contains(word) for word in word_list_name])]
         else:
             obj = cp_df[cp_df['Họ và Tên'].str.contains('|'.join(word_list_name))]
+
         return obj
+
+    @staticmethod
+    def rmvDuplicateValInLst(list_value):
+        new_list = list(dict.fromkeys(list_value))
+        return new_list
 
     def graph(self):
         pass
+
+    @staticmethod
+    def init_db(conn: Connection):
+        conn.commit()
+
+    @staticmethod
+    def get_data(conn: Connection, db_name):
+        db_select = "SELECT * FROM " + db_name
+        df = pd.read_sql(db_select, con=conn)
+        return df
+
+    @staticmethod
+    def get_connection(path: str):
+        return sqlite3.connect(path, check_same_thread=False)
+
+    @staticmethod
+    def download_link(df):
+        from io import BytesIO
+        output = BytesIO()
+        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+        df.to_excel(writer, sheet_name='Sheet1', index=False)
+        writer.save()
+        val = output.getvalue()
+
+        b64 = base64.b64encode(val)  # val looks like b'...'
+        return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="database_file.xlsx"><input ' \
+               f'type="button" value="Download File"></a>'
 
     @staticmethod
     def info():
@@ -242,14 +413,6 @@ class main:
         st.session_state.ssDf.loc[-1] = lst
         st.session_state.ssDf.index += 1
         st.session_state.ssDf.sort_index(inplace=True)
-
-    @staticmethod
-    def displayDb(path=None):
-        if path is None:
-            return
-        conn = get_connection(path)
-        init_db(conn)
-        return conn
 
 
 if __name__ == '__main__':
