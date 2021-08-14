@@ -16,7 +16,7 @@ class main:
     def __init__(self):
         self.menu = ['Home', 'Hỏi Đáp', 'Biểu Đồ', 'Trợ Giúp']
         self.pos = ["Thủ Môn", "Hậu Vệ", 'Tiền Vệ', 'Tiền Đạo']
-        self.club = ['Việt Nam', 'Nhật Bản', 'Saudi Arabia', 'Trung Quốc', 'Australia', 'Oman']
+        self.club = ['Việt Nam', 'Nhật Bản', 'Saudi Arabia', 'Trung Quốc', 'Úc', 'Oman']
         self.removeOpt = ('Xóa tất cả', 'Xóa từng dòng')
         self.qaOpt = ('Tìm tên cầu thủ', 'Cầu thủ trẻ nhất', 'Vị trí và Câu lạc bộ')
         self.saveOpt = ('Lưu Biểu Đồ', 'Lưu Dữ Liệu')
@@ -30,10 +30,6 @@ class main:
     def home(self):
         with st.form(key='Form1'):
             choice = st.sidebar.selectbox("Menu", self.menu)
-            # with st.sidebar:
-            #     editBox = st.radio('Bật Tắt Sửa File', ('Tắt', 'Mở'))
-            #     buttonAdd = st.form_submit_button('Thêm Dữ Liệu')
-            #     buttonDrawChart = st.form_submit_button('Vẽ Biểu Đồ')
 
         if choice == self.menu[0]:  # Trang chủ
             st.title('Trang chủ')
@@ -150,15 +146,15 @@ class main:
             st.title('Biểu Đồ')
             cp_df = cp.deepcopy(st.session_state.ssDf)
             self.check_database_exist()
+
             if cp_df is None:
                 return
 
+            fig = None
             num_club_dict = self.cal_string_club(cp_df['Câu Lạc Bộ'])
             num_pos_dict = self.cal_string_pos(cp_df['Câu Lạc Bộ'], num_club_dict, cp_df['Vị Trí'])
-            #print(num_pos_dict.keys())
             chart_visual = st.sidebar.selectbox('Lựa chọn biểu đồ',
                                                 ('Bar Chart', 'Pie Chart'))
-            detail = st.sidebar.checkbox('Chi Tiết', help='Thể hiện chi tiết số lượng từng vị trí trong đội bóng')
             opt_club = self.club[:]
             opt_club.insert(0, 'Tất Cả')
             list_club_keys = list(num_club_dict.keys())
@@ -168,6 +164,7 @@ class main:
             list_pos_of_club_in_keys = list(list_pos_of_club_val[0].keys())
 
             if chart_visual == 'Bar Chart':
+                detail = st.sidebar.checkbox('Chi Tiết', help='Thể hiện chi tiết số lượng từng vị trí trong đội bóng')
                 fig = go.Figure(data=[
                     go.Bar(name=list_club_keys[0],
                            x=[list_club_keys[0]],
@@ -181,38 +178,54 @@ class main:
                     go.Bar(name=list_club_keys[3],
                            x=[list_club_keys[3]],
                            y=[list_club_val[3]]),
-                ]
-                )
+                    go.Bar(name=list_club_keys[4],
+                           x=[list_club_keys[4]],
+                           y=[list_club_val[4]]),
+                    go.Bar(name=list_club_keys[5],
+                           x=[list_club_keys[5]],
+                           y=[list_club_val[5]]),
+                ])
                 # Change the bar mode
-                fig.update_layout(title='Biểu Đồ Cột Thể Hiện Số Lượng Cầu Thủ Của Từng Đội Bóng World Cup 2021',
+                fig.update_layout(title='Số Lượng Cầu Thủ Của Từng Đội Bóng World Cup 2021',
                                   barmode='group',
                                   xaxis_title="Các Quốc Gia Tham Gia World Cup 2022 Bảng A",
                                   yaxis_title="Số Lượng Cầu Thủ",
                                   font=dict(
                                       family="Courier New, monospace",
                                       size=15))
-                x_axis_0 = [list_pos_of_club_keys[0],
-                            list_pos_of_club_keys[1],
-                            list_pos_of_club_keys[2],
-                            list_pos_of_club_keys[3]]
-                y_axis_0 = [list(list_pos_of_club_val[0].values())[0],
-                            list(list_pos_of_club_val[1].values())[0],
-                            list(list_pos_of_club_val[2].values())[0],
-                            list(list_pos_of_club_val[3].values())[0]]
-                y_axis_1 = [list(list_pos_of_club_val[0].values())[1],
-                            list(list_pos_of_club_val[1].values())[1],
-                            list(list_pos_of_club_val[2].values())[1],
-                            list(list_pos_of_club_val[3].values())[1]]
-                y_axis_2 = [list(list_pos_of_club_val[0].values())[2],
-                            list(list_pos_of_club_val[1].values())[2],
-                            list(list_pos_of_club_val[2].values())[2],
-                            list(list_pos_of_club_val[3].values())[2]]
-                y_axis_3 = [list(list_pos_of_club_val[0].values())[3],
-                            list(list_pos_of_club_val[1].values())[3],
-                            list(list_pos_of_club_val[2].values())[3],
-                            list(list_pos_of_club_val[3].values())[3]]
 
                 if detail:
+                    x_axis_0 = [list_pos_of_club_keys[0],
+                                list_pos_of_club_keys[1],
+                                list_pos_of_club_keys[2],
+                                list_pos_of_club_keys[3],
+                                list_pos_of_club_keys[4],
+                                list_pos_of_club_keys[5]]
+                    y_axis_0 = [list(list_pos_of_club_val[0].values())[0],
+                                list(list_pos_of_club_val[1].values())[0],
+                                list(list_pos_of_club_val[2].values())[0],
+                                list(list_pos_of_club_val[3].values())[0],
+                                list(list_pos_of_club_val[4].values())[0],
+                                list(list_pos_of_club_val[5].values())[0]]
+                    y_axis_1 = [list(list_pos_of_club_val[0].values())[1],
+                                list(list_pos_of_club_val[1].values())[1],
+                                list(list_pos_of_club_val[2].values())[1],
+                                list(list_pos_of_club_val[3].values())[1],
+                                list(list_pos_of_club_val[4].values())[1],
+                                list(list_pos_of_club_val[5].values())[1]]
+                    y_axis_2 = [list(list_pos_of_club_val[0].values())[2],
+                                list(list_pos_of_club_val[1].values())[2],
+                                list(list_pos_of_club_val[2].values())[2],
+                                list(list_pos_of_club_val[3].values())[2],
+                                list(list_pos_of_club_val[4].values())[2],
+                                list(list_pos_of_club_val[5].values())[2]]
+                    y_axis_3 = [list(list_pos_of_club_val[0].values())[3],
+                                list(list_pos_of_club_val[1].values())[3],
+                                list(list_pos_of_club_val[2].values())[3],
+                                list(list_pos_of_club_val[3].values())[3],
+                                list(list_pos_of_club_val[4].values())[3],
+                                list(list_pos_of_club_val[5].values())[3]]
+
                     fig = go.Figure(data=[
                         go.Bar(name=list_pos_of_club_in_keys[0],
                                x=x_axis_0,
@@ -235,7 +248,14 @@ class main:
                                           family="Courier New, monospace",
                                           size=15)
                                       )
-                st.write(fig)
+
+            elif chart_visual == 'Pie Chart':
+                fig = go.Figure(data=[go.Pie(labels=list_club_keys,
+                                             values=list_club_val,
+                                             hovertemplate="%{label} "
+                                                           "<br>Số lượng cầu thủ: %{value} </br> "
+                                                           "Tỉ lệ phần trăm: %{percent}")])
+            st.write(fig)
 
         elif choice == self.menu[3]:  # Liên hệ
             st.title('Liên Hệ')
@@ -257,18 +277,8 @@ class main:
                 else:
                     pass
         pos_dict = self.getList(out_pos_dict)
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
         for i in range(len(clubDf)):
-
-            # print('i=', i)
             for j in range(len(clubdict_keylst)):
-                print('result dict', clubdict_vallst[j])
-                print('sum dict', sum(out_pos_dict.values()))
-
-                # print('>> out_pos_dict', out_pos_dict)
-                # print('>> out_dict', out_dict)
-                # print('j', j)
                 if clubDf[i] == clubdict_keylst[j]:
                     for k in range(len(pos_dict)):
                         if pos_dict[k] == posLstDf[i]:
