@@ -58,7 +58,6 @@ class main:
         self.saveOpt = ('Lưu Biểu Đồ', 'Lưu Dữ Liệu')
         self.pos.sort()
         self.club.sort()
-        self.df = None
         if 'flagOpenFile' not in st.session_state:
             st.session_state.flagOpenFile = False
         if 'flag' not in st.session_state:
@@ -78,16 +77,16 @@ class main:
                 if st.checkbox("Bật tắt hiển thị dữ liệu"):
                     _, fileExtension = os.path.splitext(str(buttonOpenFile.name))
                     if fileExtension in ['.xlsx', '.xls']:
-                        self.df = pd.read_excel(str(buttonOpenFile.name), engine='openpyxl')
-                        if 'ssDf' not in st.session_state or st.session_state.flag == True:
-                            st.session_state.ssDf = self.df
+                        df = pd.read_excel(str(buttonOpenFile.name), engine='openpyxl')
+                        if 'ssDf' not in st.session_state:
+                            st.session_state.ssDf = df
                         st.dataframe(st.session_state.ssDf)
                         st.session_state.flagOpenFile = False
                         st.session_state.flag = True
                     elif fileExtension in ['.csv']:
-                        self.df = pd.read_csv(str(buttonOpenFile.name), encoding='utf-8')
-                        if 'ssDf' not in st.session_state or st.session_state.flag == True:
-                            st.session_state.ssDf = self.df
+                        df = pd.read_csv(str(buttonOpenFile.name), encoding='utf-8')
+                        if 'ssDf' not in st.session_state:
+                            st.session_state.ssDf = df
                         st.dataframe(st.session_state.ssDf)
                         st.session_state.flagOpenFile = False
                         st.session_state.flag = True
@@ -96,9 +95,10 @@ class main:
                         self.init_db(conn)
                         split_db_name = str(buttonOpenFile.name).split('.')
                         db_name = split_db_name[0]
-                        self.df = pd.DataFrame(self.get_data(conn, db_name))
-                        if 'ssDf' not in st.session_state or st.session_state.flag == True:
-                            st.session_state.ssDf = self.df
+                        df = pd.DataFrame(self.get_data(conn, db_name))
+                        if 'ssDf' not in st.session_state:
+                            st.session_state.ssDf = df
+
                         st.dataframe(st.session_state.ssDf)
                         st.session_state.flagOpenFile = True
                         st.session_state.flag = True
@@ -116,18 +116,18 @@ class main:
             clubValue = col1.selectbox("Câu Lạc Bộ", tuple(self.club), help='Chọn câu lạc bộ cầu thủ đang tham gia')
             posValue = col2.selectbox("Vị Trí", tuple(self.pos), help='Chọn vị trí của cầu thủ')
 
-            # if nameValue != '' or len(nameValue) != 0:
-            buttonSubmit = st.button('Submit')
-            if buttonSubmit:
-                newYearValue = datetime.strptime(str(yearValue), '%Y-%m-%d').strftime('%d/%m/%Y')
-                if st.session_state.flagOpenFile:
-                    lst = np.array([nameValue, newYearValue, posValue, clubValue, numValue])
-                else:
-                    lst = [nameValue, newYearValue, posValue, clubValue, numValue]
-                self.importTable(lst)
-                st.success("Thêm dữ liệu cầu thủ <<< {} >>> hoàn tất".format(nameValue))
-            # else:
-            #     st.warning('Người dùng cần nhập đầy đủ thông tin')
+            if nameValue != '' or len(nameValue) != 0:
+                buttonSubmit = st.button('Submit')
+                if buttonSubmit:
+                    newYearValue = datetime.strptime(str(yearValue), '%Y-%m-%d').strftime('%d/%m/%Y')
+                    if st.session_state.flagOpenFile:
+                        lst = np.array([nameValue, newYearValue, posValue, clubValue, numValue])
+                    else:
+                        lst = [nameValue, newYearValue, posValue, clubValue, numValue]
+                    self.importTable(lst)
+                    st.success("Thêm dữ liệu cầu thủ <<< {} >>> hoàn tất".format(nameValue))
+            else:
+                st.warning('Người dùng cần nhập đầy đủ thông tin')
             col = st.columns(2)
             boxRemove = col[0].selectbox('Lựa Chọn', options=self.removeOpt)
             buttonRemove = col[0].button('Xóa')
@@ -451,9 +451,9 @@ class main:
 
     def display_data(self, conn: Connection):
         st.dataframe(get_data(conn))
-        self.df = pd.DataFrame(get_data(conn))
+        df = pd.DataFrame(get_data(conn))
         if 'ssDf' not in st.session_state:
-            st.session_state.ssDf = self.df
+            st.session_state.ssDf = df
 
 
 if __name__ == '__main__':
