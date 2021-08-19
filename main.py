@@ -77,47 +77,46 @@ class main:
                         st.session_state.flag = True
                     if st.session_state.flag:
                         st.session_state.ssDf = df
-                        st.dataframe(st.session_state.ssDf)
-
                 else:
-                    if st.session_state.flag:
-                        st.dataframe(st.session_state.ssDf)
-                        # self.pos = self.getDifferentVal(st.session_state.ssDf['Vị Trí'])
-                        # self.club = self.getDifferentVal(st.session_state.ssDf['Câu Lạc Bộ'])
                     st.warning('File dữ liệu chưa được thêm mới')
 
             # Input Data
-            nameValue = st.text_input("Tên Đầy Đủ", help='Nhập họ và tên cầu thủ')
-            col1, col2 = st.columns(2)
-            yearValue = col1.date_input('Ngày Sinh', help='Nhập ngày tháng năm sinh cầu thủ',
-                                        min_value=datetime(1950, 1, 1), max_value=datetime.now())
-            numValue = col2.number_input("Số Áo", min_value=1, format='%d', help='Nhập số áo cầu thủ')
-            clubValue = col1.selectbox("Câu Lạc Bộ", tuple(self.club), help='Chọn câu lạc bộ cầu thủ đang tham gia')
-            posValue = col2.selectbox("Vị Trí", tuple(self.pos), help='Chọn vị trí của cầu thủ')
+            with st.expander('Hiển thị nhập dữ liệu'):
+                nameValue, yearValue, numValue, clubValue, posValue = self.nhapDuLieu()
 
-            if nameValue != '' or len(nameValue) != 0:
-                if st.button('Thêm'):
-                    newYearValue = datetime.strptime(str(yearValue), '%Y-%m-%d').strftime('%d/%m/%Y')
-                    if st.session_state.flagOpenFile:
-                        lst = np.array([nameValue, newYearValue, posValue, clubValue, numValue])
-                    else:
-                        lst = [nameValue, newYearValue, posValue, clubValue, numValue]
-                    self.importTable(lst)
-                    st.success("Thêm dữ liệu cầu thủ <<< {} >>> hoàn tất".format(nameValue))
-            else:
-                st.warning('Người dùng cần nhập đầy đủ thông tin')
+                if nameValue != '' or len(nameValue) != 0:
+                    if st.button('Thêm'):
+                        newYearValue = datetime.strptime(str(yearValue), '%Y-%m-%d').strftime('%d/%m/%Y')
+                        if st.session_state.flagOpenFile:
+                            lst = np.array([nameValue, newYearValue, posValue, clubValue, numValue])
+                        else:
+                            lst = [nameValue, newYearValue, posValue, clubValue, numValue]
+                        self.importTable(lst)
+                        st.success("Thêm dữ liệu cầu thủ <<< {} >>> hoàn tất".format(nameValue))
+                else:
+                    st.warning('Người dùng cần nhập đầy đủ thông tin')
 
             # Delete data
             col = st.columns(2)
             boxRemove = col[0].selectbox('Lựa Chọn', options=self.removeOpt)
             buttonRemove = col[0].button('Xóa')
+            with st.expander('Hiển thị chỉnh sửa dữ liệu'):
+                nameValue, yearValue, numValue, clubValue, posValue = self.nhapDuLieuEdit()
+                lineNumEdit = st.number_input("Nhập số dòng", min_value=1, format='%d', help='Nhập số dòng cần chỉnh sửa')
+                newYearVal = datetime.strptime(str(yearValue), '%Y-%m-%d').strftime('%d/%m/%Y')
+                if st.button('Sửa'):
+                    if st.session_state.flagOpenFile:
+                        lst = np.array([nameValue, newYearVal, posValue, clubValue, numValue])
+                    else:
+                        lst = [nameValue, newYearVal, posValue, clubValue, numValue]
+                    st.session_state.ssDf.iloc[lineNumEdit] = lst
+
             if boxRemove == 'Xóa từng dòng':
                 id_row_rmv = col[1].text_input('Nhập số dòng cần xóa')
                 id_row_rmv = self.randNumInput(id_row_rmv)
 
                 if buttonRemove and id_row_rmv is not None:
                     st.write(st.session_state.ssDf['Họ và Tên'][id_row_rmv])
-
                     st.info('Độ dài dữ liệu trước khi xóa: ' + str(len(st.session_state.ssDf)))
                     st.session_state.ssDf = st.session_state.ssDf.drop(id_row_rmv)
                     st.session_state.ssDf = st.session_state.ssDf.reset_index(drop=True)
@@ -283,6 +282,28 @@ class main:
         elif choice == self.menu[3]:  # Liên hệ
             st.title('Liên Hệ')
             self.info()
+
+    def nhapDuLieu(self):
+        nameValue = st.text_input("Tên Đầy Đủ", help='Nhập họ và tên cầu thủ')
+        col1, col2 = st.columns(2)
+        yearValue = col1.date_input('Ngày Sinh', help='Nhập ngày tháng năm sinh cầu thủ',
+                                    min_value=datetime(1950, 1, 1), max_value=datetime.now())
+        numValue = col2.number_input("Số Áo", min_value=1, format='%d', help='Nhập số áo cầu thủ')
+        clubValue = col1.selectbox("Câu Lạc Bộ", tuple(self.club), help='Chọn câu lạc bộ cầu thủ đang tham gia')
+        posValue = col2.selectbox("Vị Trí", tuple(self.pos), help='Chọn vị trí của cầu thủ')
+
+        return nameValue, yearValue, numValue, clubValue, posValue
+
+    def nhapDuLieuEdit(self):
+        nameValue = st.text_input("Tên Đầy Đủ", help='Nhập họ và tên cầu thủ', key='name')
+        col1, col2 = st.columns(2)
+        yearValue = col1.date_input('Ngày Sinh', help='Nhập ngày tháng năm sinh cầu thủ',
+                                    min_value=datetime(1950, 1, 1), max_value=datetime.now(), key='date')
+        numValue = col2.number_input("Số Áo", min_value=1, format='%d', help='Nhập số áo cầu thủ', key='number')
+        clubValue = col1.selectbox("Câu Lạc Bộ", tuple(self.club), help='Chọn câu lạc bộ cầu thủ tham gia', key='club')
+        posValue = col2.selectbox("Vị Trí", tuple(self.pos), help='Chọn vị trí của cầu thủ', key='pos')
+
+        return nameValue, yearValue, numValue, clubValue, posValue
 
     @staticmethod
     def getList(inputDict):
