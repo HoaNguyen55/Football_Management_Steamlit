@@ -77,8 +77,6 @@ class main:
                         st.session_state.flag = True
                     if st.session_state.flag:
                         st.session_state.ssDf = df
-                        # st.dataframe(st.session_state.ssDf)
-
                 else:
                     st.warning('File dữ liệu chưa được thêm mới')
 
