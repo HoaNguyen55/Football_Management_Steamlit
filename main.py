@@ -29,9 +29,6 @@ class main:
         self.removeOpt = ('Xóa tất cả', 'Xóa từng dòng')
         self.qaOpt = ('Tìm tên cầu thủ', 'Lọc độ tuổi cầu thủ', 'Vị trí và Câu lạc bộ')
         self.saveOpt = ('Lưu Biểu Đồ', 'Lưu Dữ Liệu')
-        # self.pos.sort()
-        # self.pos = []
-        # self.club = []
         if 'flagOpenFile' not in st.session_state:
             st.session_state.flagOpenFile = False
         if 'flag' not in st.session_state:
