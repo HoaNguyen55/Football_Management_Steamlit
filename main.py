@@ -29,14 +29,16 @@ class main:
         self.removeOpt = ('Xóa tất cả', 'Xóa từng dòng')
         self.qaOpt = ('Tìm tên cầu thủ', 'Lọc độ tuổi cầu thủ', 'Vị trí và Câu lạc bộ')
         self.saveOpt = ('Lưu Biểu Đồ', 'Lưu Dữ Liệu')
-        self.pos.sort()
-
+        # self.pos.sort()
+        # self.pos = []
+        # self.club = []
         if 'flagOpenFile' not in st.session_state:
             st.session_state.flagOpenFile = False
         if 'flag' not in st.session_state:
             st.session_state.flag = False
         if 'welcome' not in st.session_state:
             st.session_state.welcome = True
+
         self.home()
 
     def home(self):
@@ -80,6 +82,8 @@ class main:
                 else:
                     if st.session_state.flag:
                         st.dataframe(st.session_state.ssDf)
+                        # self.pos = self.getDifferentVal(st.session_state.ssDf['Vị Trí'])
+                        # self.club = self.getDifferentVal(st.session_state.ssDf['Câu Lạc Bộ'])
                     st.warning('File dữ liệu chưa được thêm mới')
 
             # Input Data
@@ -120,7 +124,7 @@ class main:
                     st.info('Độ dài dữ liệu sau khi xóa: ' + str(len(st.session_state.ssDf)))
             else:
                 if buttonRemove:
-                    st.session_state.ssDf = st.session_state.ssDf[0:0]
+                    st.session_state.ssDf = st.session_state.ssDf.drop(index=list(range(len(st.session_state.ssDf))))
             if st.session_state.flag:
                 st.dataframe(st.session_state.ssDf)
             buttonSave = st.button('Lưu Dữ Liệu')
@@ -143,7 +147,7 @@ class main:
                 filter_col5 = col[4].checkbox('Số Áo', True)
                 col_filter_list = [filter_col1, filter_col2, filter_col3, filter_col4, filter_col5]
                 if boxQa == self.qaOpt[0]:
-                    names = st.text_input('Nhập tên cầu thủ muốn tìm')  # Người dùng nhập 1 hoặc nhiều tên
+                    names = st.text_input('Tìm cầu thủ')  # Người dùng nhập 1 hoặc nhiều tên
                     # và cách nhau bằng dấu phẩy
                     optionSearch = st.radio('Cách tìm kiếm', ('Chính Xác', 'Tương Đối'), index=0)
                     if st.session_state.ssDf is not None and len(names) > 0:
@@ -442,8 +446,11 @@ class main:
     @staticmethod
     def importTable(lst):
         # Thêm vào database table
-        st.session_state.ssDf.loc[-1] = lst
-        st.session_state.ssDf.index += 1
+        if len(st.session_state.ssDf) > 0:
+            st.session_state.ssDf.loc[-1] = lst
+            st.session_state.ssDf.index += 1
+        else:
+            st.session_state.ssDf.loc[0] = lst
         st.session_state.ssDf.sort_index(inplace=True)
 
     @staticmethod
@@ -461,11 +468,16 @@ class main:
             else:
                 array.append(int(numStrLst[i]))
 
+        return array
+
+    @staticmethod
+    def getDifferentVal(lst):
         res = []
-        for i in array:
+        for i in lst:
             if i not in res:
                 res.append(i)
         res = sorted(res)
+
         return res
 
     @staticmethod
