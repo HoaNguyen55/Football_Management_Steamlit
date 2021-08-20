@@ -29,6 +29,9 @@ class main:
         self.removeOpt = ('Xóa tất cả', 'Xóa từng dòng')
         self.qaOpt = ('Tìm tên cầu thủ', 'Lọc độ tuổi cầu thủ', 'Vị trí và Câu lạc bộ')
         self.saveOpt = ('Lưu Biểu Đồ', 'Lưu Dữ Liệu')
+        # self.pos.sort()
+        # self.pos = []
+        # self.club = []
         if 'flagOpenFile' not in st.session_state:
             st.session_state.flagOpenFile = False
         if 'flag' not in st.session_state:
@@ -51,7 +54,6 @@ class main:
             st.title('Trang chủ')
             st.image("football-manager-champion.jpg")
             buttonOpenFile = st.file_uploader("Tải file dữ liệu lên", type=["db", "csv", "xlsx"])
-            print(buttonOpenFile)
             with st.expander("Bật tắt hiển thị dữ liệu"):
                 if buttonOpenFile is not None:
                     st.info('Dữ liệu được thêm hoàn tất')
